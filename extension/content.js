@@ -36,7 +36,7 @@ if (document.readyState == "interactive") {
         let text_value = inputElement.value;
         let response;
         try {
-            await fetch(`http://localhost:5000/getmedia?title=${text_value.split(" ").join("%20")}`);
+		response = await fetch(`http://localhost:5000/getmedia?title=${text_value.split(" ").join("%20")}`);
         }
         catch (error) {
             console.log("Error: ", error);
