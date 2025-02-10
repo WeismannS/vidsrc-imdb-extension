@@ -1,85 +1,182 @@
-if (document.readyState == "interactive") {
-    const styles = `
-        .media-dropdown-container { position: relative; width: 100%; }
-        .media-dropdown { position: absolute; top: 100%; left: 0; width: 100%; max-height: 400px; overflow-y: auto; background-color: white; border: 1px solid #ddd; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 1000; }
-        .media-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; align-items: center; cursor: pointer; }
-        .media-item:hover { background-color: #f5f5f5; }
-        .media-item img { width: 50px; height: 75px; object-fit: cover; margin-right: 10px; }
-        .media-item-content { flex: 1; }
-        .media-item-title { font-weight: bold; margin-bottom: 4px; }
-        .media-item-type { font-size: 0.8em; color: #666; }
-    `;
-    
-    const styleSheet = document.createElement("style");
-    styleSheet.textContent = styles;
-    document.head.appendChild(styleSheet);
+chrome.runtime.sendMessage({ action: "ready" });
 
-    let element = document.querySelector("#pills-movies > div.input-group.input-group-sm.mb-3");
-    let element2 = document.querySelector("#pills-series > div.input-group.input-group-sm");
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === "ping") {
+        sendResponse(true);
+        return true;
+    }
+});
 
-    let dropdownContainer = document.createElement("div");
-    dropdownContainer.className = "media-dropdown-container";
+document.addEventListener('contextmenu', function(event) {
+    chrome.runtime.sendMessage({
+        action: "contextMenuClicked",
+        x: event.pageX,
+        y: event.pageY
+    });
+});
 
-    let dropdownClone = document.createElement("div");
-    dropdownClone.className = "media-dropdown-container";
+const styles = `
+    .media-search-popup {
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        max-height: 400px;
+        width: 300px;
+        overflow-y: auto;
+        z-index: 10000;
+    }
 
-    let elementtopush1 = document.createElement("input");
-    elementtopush1.placeholder = "Title";
-    elementtopush1.setAttribute("type", "search");
+    .media-search-input {
+        width: 100%;
+        padding: 8px;
+        border: none;
+        border-bottom: 1px solid #eee;
+        margin-bottom: 8px;
+        box-sizing: border-box;
+    }
 
-    let elementtopush2 = document.createElement("input");
-    elementtopush2.placeholder = "Series Title";
-    elementtopush2.setAttribute("type", "search");
+    .media-search-input:focus {
+        outline: none;
+        border-bottom-color: #0066cc;
+    }
 
-    const listener = async (e, inputElement, dropdownParent) => {
-        if (e.code !== "Enter") return;
-        let text_value = inputElement.value;
-        let response;
-        try {
-		response = await fetch(`http://localhost:5000/getmedia?title=${text_value.split(" ").join("%20")}`);
-        }
-        catch (error) {
-            console.log("Error: ", error);
-            alert("Error: Could not connect to the server, Do you have the server running?");
-        }
-        let data = await response.json();
-        let existingDropdown = dropdownParent.querySelector(".media-dropdown");
-        if (existingDropdown) existingDropdown.remove();
-        let dropdown = document.createElement("div");
-        dropdown.className = "media-dropdown";
+    .media-item {
+        padding: 10px;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+    }
+
+    .media-item:hover {
+        background-color: #f5f5f5;
+    }
+
+    .media-item img {
+        width: 50px;
+        height: 75px;
+        object-fit: cover;
+        margin-right: 10px;
+    }
+
+    .media-item-content {
+        flex: 1;
+    }
+
+    .media-item-title {
+        font-weight: bold;
+        margin-bottom: 4px;
+    }
+
+    .media-item-type {
+        font-size: 0.8em;
+        color: #666;
+    }
+
+    .media-results {
+        max-height: 350px;
+        overflow-y: auto;
+    }
+`;
+
+const styleSheet = document.createElement("style");
+styleSheet.textContent = styles;
+document.head.appendChild(styleSheet);
+
+let popup = null;
+
+async function performSearch(searchText, popup) {
+    try {
+        const response = await fetch(
+            `http://localhost:5000/getmedia?title=${encodeURIComponent(searchText)}`
+        );
+        const data = await response.json();
+        
+        const resultsContainer = popup.querySelector('.media-results');
+        resultsContainer.innerHTML = '';
+
         data.forEach(item => {
-            let resultItem = document.createElement("div");
+            const resultItem = document.createElement("div");
             resultItem.className = "media-item";
+
             if (item.image) {
-                let img = document.createElement("img");
+                const img = document.createElement("img");
                 img.src = item.image;
                 resultItem.appendChild(img);
             }
-            let textContent = document.createElement("div");
+
+            const textContent = document.createElement("div");
             textContent.className = "media-item-content";
-            let title = document.createElement("div");
+
+            const title = document.createElement("div");
             title.className = "media-item-title";
             title.textContent = item.title;
-            let type = document.createElement("div");
+
+            const type = document.createElement("div");
             type.className = "media-item-type";
             type.textContent = item.type;
+
             textContent.appendChild(title);
             textContent.appendChild(type);
             resultItem.appendChild(textContent);
+
             resultItem.addEventListener("click", () => {
-                dropdown.style.display = "none";
-                let imdb_selector = document.querySelector("div.mb-3 > input:nth-child(1)");
-                if (!imdb_selector) return;
                 navigator.clipboard.writeText(item.id);
+                document.body.removeChild(popup);
+                popup = null;
             });
-            dropdown.appendChild(resultItem);
+
+            resultsContainer.appendChild(resultItem);
         });
-        dropdownParent.appendChild(dropdown);
-    };
-    dropdownContainer.appendChild(elementtopush1);
-    dropdownClone.appendChild(elementtopush2);
-    element.appendChild(dropdownContainer);
-    element2.appendChild(dropdownClone);
-    elementtopush1.addEventListener("keypress", (e) => listener(e, elementtopush1, dropdownContainer));
-    elementtopush2.addEventListener("keypress", (e) => listener(e, elementtopush2, dropdownClone));
+
+    } catch (error) {
+        console.error("Error fetching media data:", error);
+        alert("Error: Could not connect to the server. Is the server running?");
+    }
 }
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === "searchMedia") {
+        if (popup) {
+            document.body.removeChild(popup);
+        }
+
+        popup = document.createElement("div");
+        popup.className = "media-search-popup";
+        popup.style.position = "absolute";
+        const x = request.x;
+        const y = request.y;
+
+        popup.style.left = `${x}px`;
+        popup.style.top = `${y}px`;
+
+        const searchInput = document.createElement("input");
+        searchInput.type = "text";
+        searchInput.className = "media-search-input";
+        searchInput.placeholder = "Enter title to search...";
+
+        const resultsContainer = document.createElement("div");
+        resultsContainer.className = "media-results";
+
+        popup.appendChild(searchInput);
+        popup.appendChild(resultsContainer);
+        document.body.appendChild(popup);
+
+        searchInput.focus();
+
+        searchInput.addEventListener("keypress", async (e) => {
+            if (e.key === "Enter" && searchInput.value.trim()) {
+                await performSearch(searchInput.value.trim(), popup);
+            }
+        });
+
+        document.addEventListener("click", function closePopup(e) {
+            if (popup && !popup.contains(e.target)) {
+                document.removeEventListener("click", closePopup);
+                document.body.removeChild(popup);
+                popup = null;
+            }
+        });
+    }
+});

@@ -1,18 +1,22 @@
 {
-    "name": "Hello Extensions",
-    "description": "Base Level Extension",
-    "version": "1.0",
     "manifest_version": 3,
-    "action": {
-        "default_popup": "hello.html",
-        "default_icon": "icon.png"
+    "name": "Media Search Context Menu",
+    "version": "1.0",
+    "permissions": [
+      "contextMenus",
+      "clipboardWrite",
+      "activeTab", "scripting"
+    ],
+    "host_permissions": [
+      "http://localhost:5000/"
+    ],
+    "background": {
+      "service_worker": "background.js"
     },
-    "content_scripts": [
-            {
-                "js": [ "content.js" ],
-                "matches": [
-                    "https://vidsrc.me/"
-                ]
-            }
-        ]
-}
+    "content_scripts": [{
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }]
+  }
+  
