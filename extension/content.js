@@ -174,7 +174,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         document.addEventListener("click", function closePopup(e) {
             if (popup && !popup.contains(e.target)) {
                 document.removeEventListener("click", closePopup);
-                document.body.removeChild(popup);
+                if (document.body.contains(popup))
+                    document.body.removeChild(popup);
                 popup = null;
             }
         });
